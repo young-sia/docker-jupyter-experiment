@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+ notebook:
+   image: "jupyter/datascience-notebook"
+   volumes:
+     - type: bind
+       source: .
+       target: "/home/jovyan/work"
+   ports:
+     - target: 8888
+       published: 8888
+       protocol: tcp

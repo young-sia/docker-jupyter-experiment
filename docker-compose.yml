@@ -1,4 +1,7 @@
 version: "3.8"
+
+volumes:
+  datastorage:
 services:
  notebook:
    image: "jupyter/datascience-notebook"
@@ -10,3 +13,15 @@ services:
      - target: 8888
        published: 8888
        protocol: tcp
+
+#-------
+ database:
+   image: mariadb
+   volumes:
+     - type: volume
+       source: datastorage
+       target: /var/lib/mysql
+   environment:
+     MARIADB_ROOT_PASSWORD: mariadb
+
+

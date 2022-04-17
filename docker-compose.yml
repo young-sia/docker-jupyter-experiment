@@ -3,25 +3,56 @@ version: "3.8"
 volumes:
   datastorage:
 services:
- notebook:
-   image: "jupyter/datascience-notebook"
-   volumes:
-     - type: bind
-       source: .
-       target: "/home/jovyan/work"
-   ports:
-     - target: 8888
-       published: 8888
-       protocol: tcp
+  notebook:
+    image: "jupyter/datascience-notebook"
+    volumes:
+      - type: bind
+        source: .
+        target: "/home/jovyan/work"
+    ports:
+      - target: 8888
+        published: 8888
+        protocol: tcp
 
 #-------
- database:
-   image: mariadb
-   volumes:
-     - type: volume
-       source: datastorage
-       target: /var/lib/mysql
-   environment:
-     MARIADB_ROOT_PASSWORD: mariadb
+  database:
+    image: mariadb
+    volumes:
+      - type: bind
+        source: ./init.sql
+        target: /docker-entrypoint-initdb.d/init.sql
+      - type: volume
+        source: datastorage
+        target: /var/lib/mysql
+    environment:
+      MARIADB_DATABASE: twitter
+      MARIADB_ROOT_PASSWORD: mariadb
+    ports:
+      - target: 3306
+        published: 3306
+        protocol: tcp
+    healthcheck:
+      test: "/usr/bin/mysql --user=root --password=mariadb --execute \"SHOW DATABASES;\""
+      interval: 2s
+      timeout: 30s
+      retries: 15
+
+  db_ui:
+    image: adminer
+    environment:
+      ADMINER_DEFAULT_SERVER: "database"
+    ports:
+      - target: 8080
+        published: 8080
+        protocol: tcp
+
+  collector:
+    build:
+      context: .
+    env_file:
+      - .env
+    depends_on:
+      database:
+        condition: service_healthy
 
 

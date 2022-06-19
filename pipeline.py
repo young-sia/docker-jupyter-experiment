@@ -30,30 +30,48 @@ def retrieve_tweets():
     return results
 
 
+
 @task(log_stdout=True)
-def transform_data(response):
+def count_hostname(response):
     logger = prefect.context.get("logger")
-    logger.info('transforming tweet data')
-    hostname_counts = {}
+    logger.info('classifying tweet data with links')
+    count_tweets_for_hosts = dict()
     for tweet in response['data']:
         if 'urls' in tweet['entities']:
             for url in tweet['entities']['urls']:
                 if 'unwound_url' in url:
-                    hostname = urllib.parse.urlparse(url['unwound_url']).hostname
+                    tweet_host_name = urllib.parse.urlparse(url['unwound_url']).hostname
                 else:
-                    hostname = urllib.parse.urlparse(url['expanded_url']).hostname
+                    tweet_host_name = urllib.parse.urlparse(url['expanded_url']).hostname
+                if tweet_host_name not in count_tweets_for_hosts:
+                    count_tweets_for_hosts[tweet_host_name] = {
+                        'count': 1
+                    }
+                    # {
+                    #   'google.com': {
+                    #       'count': 1
+                    #    },
+                    #   'netflix.com': {
+                    #       'count': 1
+                    #    }
+                    #  }
+                else:
+                    count_tweets_for_hosts[tweet_host_name]['count'] += 1
+    logger.info(f'added {len(count_tweets_for_hosts)} as a dictionary')
+    logger.info(f'added {count_tweets_for_hosts} as a dictionary')
+    response["counts_tweets_for_hosts"] = count_tweets_for_hosts
+    logger.info(f'{response}')
+    return response
 
-                # this hostname has been seen before
-                if hostname in hostname_counts:
-                    # so we increase its count by 1
-                    hostname_counts[hostname] += 1
-                # this hostname has not been seen before
-                else:
-                    # this is the first time seeing it, so set the count to 1
-                    hostname_counts[hostname] = 1
-    logger.info(f'reformatted {len(hostname_counts)} records')
-    logger.info(f'hostname_counts: {json.dumps(hostname_counts)}')
-    return hostname_counts
+
+@task(log_stdout=True)
+def transform_hostname_data(response):
+    logger = prefect.context.get("logger")
+    logger.info('transforming hostname-added tweet data')
+    data = [[k1, response['counts_tweets_for_hosts'][k1]['count']] for k1 in response['counts_tweets_for_hosts']]
+    logger.info(f'got {data}')
+    logger.info(f'{data}')
+    return data
 
 
 @task(log_stdout=True)
@@ -67,7 +85,7 @@ def store_data(records):
         database="twitter"
     )
     cursor = connection.cursor()
-    sql = 'insert into tweet(id,id_tweet, api_tweet, content) values (%s, %s, %s, %s)'
+    sql = 'insert into tweet(id, content) values (%s, %s)'
     logger.info('inserting tweet data')
     # executemany has an optimization for inserts where it converts multiple
     # individual insert statements into a multi-record insert
@@ -77,8 +95,9 @@ def store_data(records):
 
 with Flow("Twitter data") as flow:
     tweets = retrieve_tweets()
-    formatted_data = transform_data(tweets)
-    store_data(formatted_data)
+    host_count_tweet = count_hostname(tweets)
+    host_count_tweets = transform_hostname_data(host_count_tweet)
+    # store_hostname(host_count_tweets)
 
 
 flow.run()

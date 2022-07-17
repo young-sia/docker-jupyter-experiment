@@ -5,3 +5,11 @@ create table hostname(
     index hostname(hostname)
 );
 
+create table conversations(
+    tweet_id bigint primary key,
+    sentiment_score varchar(8),
+    hostname_id varchar(255),
+    insert_time datetime,
+    index hostname_id(hostname_id),
+    index insert_time(insert_time)
+);

@@ -1,3 +1,4 @@
 requests
 prefect
 mysql-connector-python
+konlpy
